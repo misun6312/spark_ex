@@ -1,4 +1,5 @@
 from pyspark import SparkConf, SparkContext
+from pyspark.sql import Window
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
 from pyspark.sql.types import *
@@ -19,19 +20,18 @@ def init_spark():
 	return spark
 
 def get_most_freq_word(dic,jword):
-	mfw = dic.where(col('sorted_word') == jword).orderBy('freq',ascending=False).first()
+	mfw = dic.filter(dic.sorted_word ==jword).first()
 	if (mfw != '') and (mfw != None):
-		return mfw.word
+		return mfw.word, mfw.freq
 	else:
-		return ''
+		return '', 0
 
 def sentence_search(df, remain_chars, nch_list, res, score, final_list, total_score):
 	if (len(nch_list) == 1) & (nch_list[0] == len(remain_chars)):
 		jword = ''.join(sorted(remain_chars))
 
-		mfw = get_most_freq_word(df,jword)
+		mfw, v = get_most_freq_word(df,jword)
 		if mfw != '':
-			v = df.where(col('word')==mfw).first().freq
 			res.append(mfw)
 			score.append(v)
 			final_cand = ' '.join(res)
@@ -55,13 +55,12 @@ def sentence_search(df, remain_chars, nch_list, res, score, final_list, total_sc
 		cc = combinations(remain_chars,nch_list[0])
 		for c in cc:
 			jword = ''.join(sorted(c))
-			mfw = get_most_freq_word(df,jword)
+			mfw, v = get_most_freq_word(df,jword)
 			if mfw != '':
 				tmp = remain_chars
 				for ch in jword:
 					pos = tmp.index(ch)
 					tmp = tmp[:pos] + tmp[(pos+1):]
-				v = df.where(col('word')==mfw).first().freq
 
 				res.append(mfw)
 				score.append(v)
@@ -73,30 +72,40 @@ def sentence_search(df, remain_chars, nch_list, res, score, final_list, total_sc
 		return res, final_list, total_score
 
 def main():
+	# initialize spark session
 	spark = init_spark()
 
+	# read frequency dictionary
 	json_data=open(FREQ_DICT_FILENAME).read()
 	data = json.loads(json_data)
 
+	# make RDD
 	schema = StructType([
 		StructField('word', StringType(), False),
 		StructField('freq', IntegerType(), False)])
 	df = spark.createDataFrame(data.items(),schema)
 
+	# sort the word and add column
 	sort_word = udf(lambda chars:''.join(sorted(list(chars))), StringType())
 	df = df.withColumn('sorted_word', sort_word(df.word))
-	df.cache()
+	
+	# group by the sorted word and take the most frequent word
+	w = Window.partitionBy('sorted_word')
+	df_max = df.withColumn('maxFreq',max('freq').over(w)).where(col('freq') == col('maxFreq'))
+
+	df_max.cache()
 
 	# read puzzle
 	inpfile = open(INPUT_FILE)
 	anagram = eval(inpfile.readline().replace('\n',''))
 	sentence_length = eval(inpfile.readline().replace('\n',''))
 
+	# solve the jumble (part1)
 	chars_for_sentence = []
 	for i, v in anagram.items():
 		jword = ''.join(sorted(i.lower()))
 
-		most_frequent_word = get_most_freq_word(df,jword)
+		most_frequent_word, freq_v = get_most_freq_word(df,jword)
 		print i, '\t|', most_frequent_word
 
 		chars_for_sentence.extend([most_frequent_word[i] for i, x in enumerate(v) if x == "1"])
@@ -105,6 +114,7 @@ def main():
 
 	print chars_for_sentence
 
+	# solve the jumble (part2 - sentence)
  	final_list = []
 	total_score = []
 	res = []
