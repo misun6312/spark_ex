@@ -1,18 +1,5 @@
-from pyspark import SparkConf, SparkContext
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import *
-from pyspark.sql.types import *
-
 from itertools import combinations
 import json
-
-def init_spark():
-	# sc=SparkContext('local[4]', appName = 'Jumble Solver')
-	spark = SparkSession.builder \
-		.master("local") \
-		.appName("Jumble Solver") \
-		.getOrCreate()
-	return spark
 
 def make_dictionary(dict, source):
 	for word, v in source.items():
@@ -78,34 +65,9 @@ def recur_search(dict, remain_chars, nch_list, res, score):
 
 def main():
 
-	spark = init_spark()
-	# Data = sc.textFile("freq_dict.json")
-
-	# linewithsmall = Data.filter(lambda line: "small" in line)
-	# print linewithsmall.count()
-
 	json_data=open('freq_dict.json').read()
 	data = json.loads(json_data)
 
-	data_formated = []
-	for word in data.keys():
-		data_formated.append([word, data[word]])
-
-	# scdata = sc.parallelize(data_formated)
-	# scdata = scdata.flatmap(lambda line: line.split())map(lambda line,1)
-	# test = scdata.filter(lambda line: ''.join(sorted("zymoid")) == ''.join(sorted(line)))
-	# print test.collect()
-
-
-	schema = StructType([
-		StructField('word', StringType(), False),
-		StructField('freq', IntegerType(), False)])
-	df = spark.createDataFrame(data.items(),schema)
-
-	sort_word = udf(lambda chars:''.join(sorted(list(chars))))
-	df = df.withColumn('sorted_word', sort_word(df.word))
-
-	print df.take(5)
 
 	dict = {}
 	make_dictionary(dict, data)
@@ -117,14 +79,14 @@ def main():
 	# inp = {'BNEDL':'10001','IDOVA':'10011','SEHEYC':'010001','ARACEM':'010011'}
 	# inp2 = [3,4,3]
 	
-	inp = {'SHAST':'10011','DOORE':'11010','DITNIC':'111000','CATILI':'101001'}
-	inp2 = [4, 8]
+	# inp = {'SHAST':'10011','DOORE':'11010','DITNIC':'111000','CATILI':'101001'}
+	# inp2 = [4, 8]
 	
 	# inp = {'KNIDY':'11000','LEGIA':'10100','CRONEE':'010100','TUVEDO':'100001'}
 	# inp2 = [8]
 	
-	# inp = {'GYRINT':'110100','DRIVET':'001001','SNAMEA':'100001','CEEDIT':'010101','SOWDAH':'100100','ELCHEK':'010001'}
-	# inp2 = [6, 8]
+	inp = {'GYRINT':'110100','DRIVET':'001001','SNAMEA':'100001','CEEDIT':'010101','SOWDAH':'100100','ELCHEK':'010001'}
+	inp2 = [6, 8]
 
 	chars = []
 	for i, v in inp.items():
