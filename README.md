@@ -25,3 +25,13 @@ For example,
 [4, 8]
 ```
 
+The output is the most frequent word in the dictionary for each anagram and the sentence satisfying the length of words.
+
+```
+DOORE 	| rooed 	<=  [u'rooed', u'rodeo']
+DITNIC 	| indict 	<=  [u'indict']
+CATILI 	| italic 	<=  [u'clitia', u'italic']
+SHAST 	| stash 	<=  [u'stash']
+roeindiacssh
+9563 dish scenario
+```
