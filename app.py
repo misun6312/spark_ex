@@ -8,7 +8,7 @@ from itertools import combinations
 import json
 
 FREQ_DICT_FILENAME = 'freq_dict.json'
-INPUT_FILE = 'input/puzzle3.txt'
+INPUT_FILE = 'input/puzzle4.txt'
 
 def init_spark():
 	sc=SparkContext('local[4]', appName = 'Jumble Solver')
