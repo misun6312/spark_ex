@@ -8,7 +8,7 @@ from itertools import combinations
 import json
 
 FREQ_DICT_FILENAME = 'freq_dict.json'
-INPUT_FILE = 'input/puzzle4.txt'
+INPUT_FILE = 'input/puzzle3.txt'
 
 def init_spark():
 	sc=SparkContext('local[4]', appName = 'Jumble Solver')
@@ -22,7 +22,11 @@ def init_spark():
 def get_most_freq_word(dic,jword):
 	mfw = dic.filter(dic.sorted_word ==jword).first()
 	if (mfw != '') and (mfw != None):
-		return mfw.word, mfw.freq
+		if mfw.freq>0:
+			v = 9888-mfw.freq
+		else:
+			v = mfw.freq
+		return mfw.word, v
 	else:
 		return '', 0
 
@@ -90,10 +94,23 @@ def main():
 	df = df.withColumn('sorted_word', sort_word(df.word))
 	
 	# group by the sorted word and take the most frequent word
-	w = Window.partitionBy('sorted_word')
-	df_max = df.withColumn('maxFreq',max('freq').over(w)).where(col('freq') == col('maxFreq'))
+	window = (Window
+          .partitionBy(df['sorted_word'])
+          .orderBy(df['freq'].desc()))
 
-	df_max.cache()
+
+	df_max = (df
+	 .select('*', rank()
+	         .over(window)
+	         .alias('rank')) 
+	  .filter(col('rank') == 1)
+	  .orderBy(col('freq'))
+	  .dropDuplicates(['sorted_word'])
+	  .drop('rank')
+	)
+
+	# df_max.cache()
+	df_max.persist()
 
 	# read puzzle
 	inpfile = open(INPUT_FILE)
@@ -105,7 +122,7 @@ def main():
 	for i, v in anagram.items():
 		jword = ''.join(sorted(i.lower()))
 
-		most_frequent_word, freq_v = get_most_freq_word(df,jword)
+		most_frequent_word, freq_v = get_most_freq_word(df_max,jword)
 		print i, '\t|', most_frequent_word
 
 		chars_for_sentence.extend([most_frequent_word[i] for i, x in enumerate(v) if x == "1"])
@@ -120,7 +137,7 @@ def main():
 	res = []
 	score = []
 
-	res, final_list, total_score = sentence_search(df, chars_for_sentence, sentence_length, res, score, final_list, total_score)
+	res, final_list, total_score = sentence_search(df_max, chars_for_sentence, sentence_length, res, score, final_list, total_score)
 
 	idlist = sorted(range(len(total_score)), key=lambda k: total_score[k], reverse=True)
 	
